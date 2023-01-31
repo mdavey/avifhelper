@@ -1,4 +1,4 @@
-## AVIF Helper
+# AVIF Helper
 
 Super basic Python UI for compressing a JPEG/PNG to AVIF at a target size.
 
@@ -12,7 +12,23 @@ Windows only.  Requires a `avifenc` binary.
 ![screenshot](screenshot.png)
 
 
-### Icon
+## Issues
+
+No thread when launching `avifenc` so the UI will freeze while it's compressing the image.  There's also no way to 
+stop it (without closing the program).
+
+The 42Kb target is hardcoded.
+
+Speed is hardcoded to 4  (1 = slowest, 10 = fastest)
+
+Program only tries a set list of quality settings, can't adapt to results and make finer adjustments
+
+## Thanks
+
+Thanks to https://jeremylee.sh/ for the Windows binaries for `avifenc`
+
+
+## Icon
 
 Stolen from The Alliance for Open Media 
 
