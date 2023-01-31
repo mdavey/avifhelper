@@ -42,14 +42,16 @@ def select_original_image():
     btn3['state'] = 'disabled'
 
 
-def test_compression(src_filename, dest_filename, quality=50, speed=4, jobs=8):
+def test_compression(src_filename, dest_filename, quality=50, speed=4):
     # .\avifenc.exe --jobs 8 -q 50 --speed 5 .\bass_hill.jpeg output.avif
     cmd = [
         os.path.join(APP_DIR, 'avifenc.exe'),
         src_filename,
         '-q', str(quality),
         '--speed', str(speed),
-        '--jobs', str(jobs),
+        '--jobs', 'all',
+        # '--tilerowslog2', '2',  # I have a feeling this increases the efficiency of threads?
+        # '--tilecolslog2', '2',  # Maybe turn off for final save?
         '-o', dest_filename
     ]
 
@@ -74,6 +76,9 @@ def test_compression(src_filename, dest_filename, quality=50, speed=4, jobs=8):
 
 
 def find_optimal_settings():
+    if btn2['state'] == 'disabled':
+        return
+
     btn1['state'] = 'disabled'
     btn2['state'] = 'disabled'
     btn3['state'] = 'disabled'
@@ -106,6 +111,8 @@ def build_reasonable_destination_filename(original_filename):
 
 
 def save_avif():
+    if btn3['state'] == 'disabled':
+        return
 
     dest_filename = filedialog.asksaveasfilename(
         filetypes=(('AVIF', '*.avif'),),
@@ -135,7 +142,7 @@ log.insert(END, 'Select a JPEG, or PNG image and this program will find a qualit
 log.insert(END, 'that results in a file <= 42,000 bytes (< 120sec in EasyPal).\n\n')
 log.insert(END, 'Version 0.02 will include a selectable target size, speed setting\n')
 log.insert(END, 'and thread count.  Maybe.\n\n')
-
+log.insert(END, 'CTRL+O to Open, CTRL+F to Find Quality, CTRL+S to Save, and CTRL+Q to quit\n\n')
 
 bottom_frame = Frame(root, height=100)
 bottom_frame.grid(row=1, column=0, padx=10, pady=10)
@@ -143,7 +150,7 @@ bottom_frame.grid(row=1, column=0, padx=10, pady=10)
 btn1 = Button(bottom_frame, text='Select Image', command=select_original_image)
 btn1.grid(row=0, column=0, padx=10)
 
-btn2 = Button(bottom_frame, text='Test Compression', command=find_optimal_settings)
+btn2 = Button(bottom_frame, text='Find Optimal Quality', command=find_optimal_settings)
 btn2.grid(row=0, column=1, padx=10)
 btn2['state'] = 'disabled'
 
@@ -154,4 +161,8 @@ btn3['state'] = 'disabled'
 btn_about = Button(bottom_frame, text='About', command=show_about_dialog)
 btn_about.grid(row=0, column=3, padx=10)
 
+root.bind('<Control-o>', lambda event: select_original_image())
+root.bind('<Control-s>', lambda event: save_avif())
+root.bind('<Control-f>', lambda event: find_optimal_settings())
+root.bind('<Control-q>', lambda event: root.quit())
 root.mainloop()
