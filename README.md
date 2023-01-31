@@ -9,6 +9,9 @@ Windows only.  Requires a `avifenc` binary.
 
 **Does** correctly freeze to a single 13MB exe (including `avifenc` binary).
 
+![screenshot](screenshot.png)
+
+
 ### Icon
 
 Stolen from The Alliance for Open Media 
