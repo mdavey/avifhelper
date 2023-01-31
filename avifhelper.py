@@ -31,10 +31,10 @@ def select_original_image():
     )
 
     filename = filedialog.askopenfilename(filetypes=filetypes)
-    log.insert(END, 'Selected file: ' + filename + '\n')
     original_image_filename.set(filename)
 
     if filename != '':
+        log.insert(END, 'File selected: ' + filename + '\n')
         btn2['state'] = 'active'
     else:
         btn2['state'] = 'disabled'
@@ -42,8 +42,53 @@ def select_original_image():
     btn3['state'] = 'disabled'
 
 
+def my_subprocess_run(cmd):
+    # set stderr and stdin
+    # and set startupinfo, and env
+    # and hide the window
+    # all to make PyInstaller play nicely
+    si = subprocess.STARTUPINFO()
+    si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+
+    output = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE, startupinfo=si, env=os.environ).stdout
+    return output.decode('utf-8')
+
+
 def test_compression(src_filename, dest_filename, quality=50, speed=4):
-    # .\avifenc.exe --jobs 8 -q 50 --speed 5 .\bass_hill.jpeg output.avif
+    return test_compression_avifenc(src_filename, dest_filename, quality, speed)
+    # return test_compression_magik(src_filename, dest_filename, quality, speed)
+
+
+def test_compression_magik(src_filename, dest_filename, quality=50, speed=4):
+    # Test version that does a nice resize first.  Much fast encodes, but actually doesn't look any better.
+    # It seems like a higher resolution and lower quality looks better :-/
+    #
+    # .\magick.exe '.\DSCF0786.jpeg' -resize "1920x1080" -quality 20 -verbose output.avif
+    cmd = [
+        os.path.join(APP_DIR, 'magick.exe'),
+        src_filename,
+        '-resize', '1920x1080',
+        '-quality', str(quality),
+        '-verbose',
+        dest_filename
+    ]
+
+    output = my_subprocess_run(cmd)
+
+    if '.avif' not in output:
+        log.insert(END, 'FAILED, Processing Image:\n' + repr(output) + '\n\n')
+        return None
+
+    matches = re.search(r' (\d+)B ', output)
+
+    if matches is None:
+        log.insert(END, 'FAILED, No Match:\n' + repr(matches) + '\n\n')
+
+    return int(matches.group(1))
+
+
+def test_compression_avifenc(src_filename, dest_filename, quality=50, speed=4):
+    # .\avifenc.exe --jobs 8 -q 50 --speed 5 .\DSCF0786.jpeg output.avif
     cmd = [
         os.path.join(APP_DIR, 'avifenc.exe'),
         src_filename,
@@ -55,13 +100,7 @@ def test_compression(src_filename, dest_filename, quality=50, speed=4):
         '-o', dest_filename
     ]
 
-    # set stderr and stdin to make PyInstaller happy...
-    # and set startupinfo, and env
-    si = subprocess.STARTUPINFO()
-    si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-
-    output = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE, startupinfo=si, env=os.environ).stdout
-    output = output.decode('utf-8')
+    output = my_subprocess_run(cmd)
 
     if 'Successfully loaded' not in output:
         log.insert(END, 'FAILED, Processing Image:\n' + repr(output) + '\n\n')
@@ -84,9 +123,16 @@ def find_optimal_settings():
     btn3['state'] = 'disabled'
     root.update()
 
-    possible_quality = [70, 60, 50, 40, 35, 30, 25, 20, 15, 10, 5]
+    possible_quality = [70, 60, 50, 40, 35, 30, 25, 22, 19, 16, 13, 10, 7]
 
     for quality in possible_quality:
+
+        # This works with both image magik and avifenc, but I've rather send it to /dev/null
+        # file_size = test_compression(original_image_filename.get(), APP_DIR + '/tmp.avif', quality)
+        #
+        # if os.path.exists(APP_DIR + '/tmp.avif'):
+        #     os.unlink(APP_DIR + '/tmp.avif')
+
         file_size = test_compression(original_image_filename.get(), 'NUL', quality)
 
         if file_size < target_file_size.get():
@@ -138,6 +184,7 @@ top_frame.grid(row=0, column=0, padx=10, pady=5)
 
 log = Text(top_frame)
 log.pack()
+log.insert(END, 'Running in ' + APP_DIR + '\n\n')
 log.insert(END, 'Select a JPEG, or PNG image and this program will find a quality setting\n')
 log.insert(END, 'that results in a file <= 42,000 bytes (< 120sec in EasyPal).\n\n')
 log.insert(END, 'Version 0.02 will include a selectable target size, speed setting\n')

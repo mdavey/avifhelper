@@ -1,7 +1,9 @@
 .idea
-build
-dist
-venv
-avifenc.exe
 avifhelper.iml
+venv
+
+build
+
+avifenc.exe
+magick.exe
 upx.exe
