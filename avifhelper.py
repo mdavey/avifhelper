@@ -1,0 +1,157 @@
+import os.path
+from tkinter import *
+from tkinter import filedialog
+from tkinter import messagebox
+import subprocess
+import re
+
+
+APP_DIR = os.path.dirname(__file__)
+APP_NAME = 'AVIF Helper'
+APP_VERSION = '0.0.1'
+
+
+root = Tk()
+root.title(APP_NAME + ' ' + APP_VERSION)
+root.resizable(False, False)
+root.iconbitmap(os.path.join(APP_DIR, 'avif-logo-rgb.svg.ico'))  # https://redketchup.io/icon-editor
+
+original_image_filename = StringVar(root, '')
+target_file_size = IntVar(root, 42000)
+final_quality_setting = IntVar(root, 50)
+
+
+def select_original_image():
+    filetypes = (
+        ('All Images', '*.jpg *.jpeg *.png'),
+        ('JPG', '*.jpg'),
+        ('JPEG', '*.jpeg'),
+        ('PNG', '*.png'),
+        ('All files', '*.*')
+    )
+
+    filename = filedialog.askopenfilename(filetypes=filetypes)
+    log.insert(END, 'Selected file: ' + filename + '\n')
+    original_image_filename.set(filename)
+
+    if filename != '':
+        btn2['state'] = 'active'
+    else:
+        btn2['state'] = 'disabled'
+
+    btn3['state'] = 'disabled'
+
+
+def test_compression(src_filename, dest_filename, quality=50, speed=4, jobs=8):
+    # .\avifenc.exe --jobs 8 -q 50 --speed 5 .\bass_hill.jpeg output.avif
+    cmd = [
+        os.path.join(APP_DIR, 'avifenc.exe'),
+        src_filename,
+        '-q', str(quality),
+        '--speed', str(speed),
+        '--jobs', str(jobs),
+        '-o', dest_filename
+    ]
+
+    # set stderr and stdin to make PyInstaller happy...
+    # and set startupinfo, and env
+    si = subprocess.STARTUPINFO()
+    si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+
+    output = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE, startupinfo=si, env=os.environ).stdout
+    output = output.decode('utf-8')
+
+    if 'Successfully loaded' not in output:
+        log.insert(END, 'FAILED, Processing Image:\n' + repr(output) + '\n\n')
+        return None
+
+    matches = re.search(r'AV1 total size: (\d+) bytes', output)
+
+    if matches is None:
+        log.insert(END, 'FAILED, No Match:\n' + repr(matches) + '\n\n')
+
+    return int(matches.group(1))
+
+
+def find_optimal_settings():
+    btn1['state'] = 'disabled'
+    btn2['state'] = 'disabled'
+    btn3['state'] = 'disabled'
+    root.update()
+
+    possible_quality = [70, 60, 50, 40, 35, 30, 25, 20, 15, 10, 5]
+
+    for quality in possible_quality:
+        file_size = test_compression(original_image_filename.get(), 'NUL', quality)
+
+        if file_size < target_file_size.get():
+            log.insert(END, 'Quality=' + str(quality) + '  Size=' + str(file_size) + ' bytes  Done!\n')
+            final_quality_setting.set(quality)
+            btn3['state'] = 'active'
+            break
+        else:
+            log.insert(END, 'Quality=' + str(quality) + '  Size=' + str(file_size) + ' bytes\n')
+
+        root.update()
+
+    btn1['state'] = 'active'
+    btn2['state'] = 'active'
+
+
+def build_reasonable_destination_filename(original_filename):
+    # create a reasonable filename to save as
+    directory, filename_and_ext = os.path.split(original_filename)
+    just_filename, extension = os.path.splitext(filename_and_ext)
+    return just_filename + '.avif'
+
+
+def save_avif():
+
+    dest_filename = filedialog.asksaveasfilename(
+        filetypes=(('AVIF', '*.avif'),),
+        defaultextension=".avif",
+        initialfile=build_reasonable_destination_filename(original_image_filename.get()))
+
+    if dest_filename is not None:
+        file_size = test_compression(original_image_filename.get(), dest_filename, final_quality_setting.get())
+        if file_size is None:
+            log.insert(END, 'Error Saving!?\n')
+        else:
+            log.insert(END, 'File Saved: ' + str(file_size) + ' bytes saved to ' + dest_filename + '\n')
+
+
+def show_about_dialog():
+    messagebox.showinfo('About', APP_NAME + ' ' + APP_VERSION + '\n\n' + 'This program uses libavif from the Alliance '
+                        + 'for Open Media - https://github.com/AOMediaCodec/libavif\n\n'
+                        + 'Icon copyright © 2019 The Alliance for Open Media\n\n')
+
+
+top_frame = Frame(root, height=400)
+top_frame.grid(row=0, column=0, padx=10, pady=5)
+
+log = Text(top_frame)
+log.pack()
+log.insert(END, 'Select a JPEG, or PNG image and this program will find a quality setting\n')
+log.insert(END, 'that results in a file <= 42,000 bytes (< 120sec in EasyPal).\n\n')
+log.insert(END, 'Version 0.02 will include a selectable target size, speed setting\n')
+log.insert(END, 'and thread count.  Maybe.\n\n')
+
+
+bottom_frame = Frame(root, height=100)
+bottom_frame.grid(row=1, column=0, padx=10, pady=10)
+
+btn1 = Button(bottom_frame, text='Select Image', command=select_original_image)
+btn1.grid(row=0, column=0, padx=10)
+
+btn2 = Button(bottom_frame, text='Test Compression', command=find_optimal_settings)
+btn2.grid(row=0, column=1, padx=10)
+btn2['state'] = 'disabled'
+
+btn3 = Button(bottom_frame, text='Save AVIF', command=save_avif)
+btn3.grid(row=0, column=2, padx=10)
+btn3['state'] = 'disabled'
+
+btn_about = Button(bottom_frame, text='About', command=show_about_dialog)
+btn_about.grid(row=0, column=3, padx=10)
+
+root.mainloop()
