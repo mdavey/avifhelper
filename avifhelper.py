@@ -8,7 +8,7 @@ import re
 
 APP_DIR = os.path.dirname(__file__)
 APP_NAME = 'AVIF Helper'
-APP_VERSION = '0.0.1'
+APP_VERSION = '0.0.2'
 
 
 root = Tk()
@@ -54,20 +54,19 @@ def my_subprocess_run(cmd):
     return output.decode('utf-8')
 
 
-def test_compression(src_filename, dest_filename, quality=50, speed=4):
-    return test_compression_avifenc(src_filename, dest_filename, quality, speed)
-    # return test_compression_magik(src_filename, dest_filename, quality, speed)
+def compress_image(src_filename, dest_filename, quality=50, speed=4):
+    # return compress_image_avifenc(src_filename, dest_filename, quality, speed)
+    return compress_image_magik(src_filename, dest_filename, quality)
 
 
-def test_compression_magik(src_filename, dest_filename, quality=50, speed=4):
-    # Test version that does a nice resize first.  Much fast encodes, but actually doesn't look any better.
-    # It seems like a higher resolution and lower quality looks better :-/
-    #
+def compress_image_magik(src_filename, dest_filename, quality=50):
     # .\magick.exe '.\DSCF0786.jpeg' -resize "1920x1080" -quality 20 -verbose output.avif
     cmd = [
         os.path.join(APP_DIR, 'magick.exe'),
         src_filename,
-        '-resize', '1920x1080',
+        # '-resize', '1920x1080',
+        # '-resize', '1600x1200^>',    # Shrinks an image with dimension(s) larger than the corresponding width and/or height argument(s). >
+        '-resize', '1920000@^>',    # max number pixels
         '-quality', str(quality),
         '-verbose',
         dest_filename
@@ -87,7 +86,7 @@ def test_compression_magik(src_filename, dest_filename, quality=50, speed=4):
     return int(matches.group(1))
 
 
-def test_compression_avifenc(src_filename, dest_filename, quality=50, speed=4):
+def compress_image_avifenc(src_filename, dest_filename, quality=50, speed=4):
     # .\avifenc.exe --jobs 8 -q 50 --speed 5 .\DSCF0786.jpeg output.avif
     cmd = [
         os.path.join(APP_DIR, 'avifenc.exe'),
@@ -127,13 +126,10 @@ def find_optimal_settings():
 
     for quality in possible_quality:
 
-        # This works with both image magik and avifenc, but I've rather send it to /dev/null
-        # file_size = test_compression(original_image_filename.get(), APP_DIR + '/tmp.avif', quality)
-        #
-        # if os.path.exists(APP_DIR + '/tmp.avif'):
-        #     os.unlink(APP_DIR + '/tmp.avif')
+        file_size = compress_image(original_image_filename.get(), APP_DIR + '/tmp.avif', quality)
 
-        file_size = test_compression(original_image_filename.get(), 'NUL', quality)
+        if os.path.exists(APP_DIR + '/tmp.avif'):
+            os.unlink(APP_DIR + '/tmp.avif')
 
         if file_size < target_file_size.get():
             log.insert(END, 'Quality=' + str(quality) + '  Size=' + str(file_size) + ' bytes  Done!\n')
@@ -166,7 +162,7 @@ def save_avif():
         initialfile=build_reasonable_destination_filename(original_image_filename.get()))
 
     if dest_filename is not None:
-        file_size = test_compression(original_image_filename.get(), dest_filename, final_quality_setting.get())
+        file_size = compress_image(original_image_filename.get(), dest_filename, final_quality_setting.get())
         if file_size is None:
             log.insert(END, 'Error Saving!?\n')
         else:
@@ -174,9 +170,9 @@ def save_avif():
 
 
 def show_about_dialog():
-    messagebox.showinfo('About', APP_NAME + ' ' + APP_VERSION + '\n\n' + 'This program uses libavif from the Alliance '
-                        + 'for Open Media - https://github.com/AOMediaCodec/libavif\n\n'
-                        + 'Icon copyright © 2019 The Alliance for Open Media\n\n')
+    messagebox.showinfo('About', APP_NAME + ' ' + APP_VERSION + '\n\n' + 'This program uses ImageMagick for image '
+                        + 'processing\nhttps://imagemagick.org/\n\n'
+                        + 'Icon Copyright ©2019 The Alliance for Open Media\n\n')
 
 
 top_frame = Frame(root, height=400)
@@ -187,8 +183,8 @@ log.pack()
 log.insert(END, 'Running in ' + APP_DIR + '\n\n')
 log.insert(END, 'Select a JPEG, or PNG image and this program will find a quality setting\n')
 log.insert(END, 'that results in a file <= 42,000 bytes (< 120sec in EasyPal).\n\n')
-log.insert(END, 'Version 0.02 will include a selectable target size, speed setting\n')
-log.insert(END, 'and thread count.  Maybe.\n\n')
+log.insert(END, 'This program using ImageMagick for the actual conversion\n\n')
+log.insert(END, 'Images larger than 1600x1200 are scaled down before compression\n\n')
 log.insert(END, 'CTRL+O to Open, CTRL+F to Find Quality, CTRL+S to Save, and CTRL+Q to quit\n\n')
 
 bottom_frame = Frame(root, height=100)

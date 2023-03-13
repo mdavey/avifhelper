@@ -6,6 +6,6 @@ pyinstaller ^
   --noconsole ^
   --onefile ^
   --add-data="avif-logo-rgb.svg.ico;." ^
-  --add-data="avifenc.exe;." ^
+  --add-data="magick.exe;." ^
   --icon="avif-logo-rgb.svg.ico" ^
   avifhelper.py

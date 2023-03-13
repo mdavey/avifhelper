@@ -2,34 +2,28 @@
 
 Super basic Python UI for compressing a JPEG/PNG to AVIF at a target size.
 
-There is nothing clever here.  It just uses `avifenc` to try a few quality settings and picks the one under the 
-specified goal size.
+There is nothing clever here.  It just uses ImageMagick to try a few quality settings and picks the one under the 
+specified goal size.  Will resize large images to somewhere around 1600x1200.
 
-Windows only.  Requires a `avifenc` binary.
+It's meant to be super simple.  If you want the best quality then use [https://squoosh.app/](Squoosh).  It's amazing.
 
-**Does** correctly freeze to a single 13MB exe (including `avifenc` binary).
+Windows only (Uses Windows API for spawning processes correctly from a frozen TK program).  
+
+**Does** correctly freeze to a single 17MB exe (including `magick.exe` binary).
 
 ![screenshot](screenshot.png)
 
 
 ## Issues
 
-No thread when launching `avifenc` so the UI will freeze while it's compressing the image.  There's also no way to 
+No thread when launching `magick` so the UI will freeze while it's compressing the image.  There's also no way to 
 stop it (without closing the program).
 
 The 42Kb target is hardcoded.
 
-Speed is hardcoded to 4  (1 = slowest, 10 = fastest)
-
 Program only tries a set list of quality settings, can't adapt to results and make finer adjustments
 
-Should be able to resize large images too, so you can take an image straight from camera and share. Maybe?  I've now 
-tried using ImageMagik and resizing first.  While it's faster for sure, it's not better quality...
-
-
-## Thanks
-
-Thanks to https://jeremylee.sh/ for the Windows binaries for `avifenc`
+No drag and drop for opening images.
 
 
 ## Icon

@@ -8,7 +8,7 @@ a = Analysis(
     ['avifhelper.py'],
     pathex=[],
     binaries=[],
-    datas=[('avif-logo-rgb.svg.ico', '.'), ('avifenc.exe', '.')],
+    datas=[('avif-logo-rgb.svg.ico', '.'), ('magick.exe', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
