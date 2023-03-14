@@ -5,6 +5,7 @@ pyinstaller ^
   --noconfirm  ^
   --noconsole ^
   --onefile ^
+  --collect-all tkinterdnd2 ^
   --add-data="avif-logo-rgb.svg.ico;." ^
   --add-data="magick.exe;." ^
   --icon="avif-logo-rgb.svg.ico" ^

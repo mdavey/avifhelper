@@ -1,14 +1,18 @@
 import os.path
 from tkinter import *
+from tkinter.ttk import *
+
 from tkinter import filedialog
 from tkinter import messagebox
+from tkinterdnd2 import *
+
 import subprocess
 import re
 
 
 APP_DIR = os.path.dirname(__file__)
 APP_NAME = 'AVIF Helper'
-APP_VERSION = '0.0.2'
+APP_VERSION = '0.0.3'
 
 
 root = Tk()
@@ -21,7 +25,7 @@ target_file_size = IntVar(root, 42000)
 final_quality_setting = IntVar(root, 50)
 
 
-def select_original_image():
+def show_open_dialog():
     filetypes = (
         ('All Images', '*.jpg *.jpeg *.png'),
         ('JPG', '*.jpg'),
@@ -31,6 +35,19 @@ def select_original_image():
     )
 
     filename = filedialog.askopenfilename(filetypes=filetypes)
+    set_source_image(filename)
+
+
+def handle_drop_file(event):
+    if event.data:
+        files = log.tk.splitlist(event.data)
+        for f in files:
+            if os.path.exists(f):
+                set_source_image(f)
+                break
+
+
+def set_source_image(filename):
     original_image_filename.set(filename)
 
     if filename != '':
@@ -75,13 +92,13 @@ def compress_image_magik(src_filename, dest_filename, quality=50):
     output = my_subprocess_run(cmd)
 
     if '.avif' not in output:
-        log.insert(END, 'FAILED, Processing Image:\n' + repr(output) + '\n\n')
+        log.insert(END, 'FAILED, Processing Image: ' + repr(output) + '\n\n')
         return None
 
     matches = re.search(r' (\d+)B ', output)
 
     if matches is None:
-        log.insert(END, 'FAILED, No Match:\n' + repr(matches) + '\n\n')
+        log.insert(END, 'FAILED, No Match: ' + repr(matches) + '\n\n')
 
     return int(matches.group(1))
 
@@ -130,6 +147,9 @@ def find_optimal_settings():
 
         if os.path.exists(APP_DIR + '/tmp.avif'):
             os.unlink(APP_DIR + '/tmp.avif')
+
+        if file_size is None:
+            break
 
         if file_size < target_file_size.get():
             log.insert(END, 'Quality=' + str(quality) + '  Size=' + str(file_size) + ' bytes  Done!\n')
@@ -183,14 +203,18 @@ log.pack()
 log.insert(END, 'Running in ' + APP_DIR + '\n\n')
 log.insert(END, 'Select a JPEG, or PNG image and this program will find a quality setting\n')
 log.insert(END, 'that results in a file <= 42,000 bytes (< 120sec in EasyPal).\n\n')
+log.insert(END, 'Now supports drag and drop!\n\n')
 log.insert(END, 'This program using ImageMagick for the actual conversion\n\n')
 log.insert(END, 'Images larger than 1600x1200 are scaled down before compression\n\n')
 log.insert(END, 'CTRL+O to Open, CTRL+F to Find Quality, CTRL+S to Save, and CTRL+Q to quit\n\n')
 
+log.drop_target_register(DND_FILES)
+log.dnd_bind('<<Drop>>', handle_drop_file)
+
 bottom_frame = Frame(root, height=100)
 bottom_frame.grid(row=1, column=0, padx=10, pady=10)
 
-btn1 = Button(bottom_frame, text='Select Image', command=select_original_image)
+btn1 = Button(bottom_frame, text='Select Image', command=show_open_dialog)
 btn1.grid(row=0, column=0, padx=10)
 
 btn2 = Button(bottom_frame, text='Find Optimal Quality', command=find_optimal_settings)
@@ -204,7 +228,7 @@ btn3['state'] = 'disabled'
 btn_about = Button(bottom_frame, text='About', command=show_about_dialog)
 btn_about.grid(row=0, column=3, padx=10)
 
-root.bind('<Control-o>', lambda event: select_original_image())
+root.bind('<Control-o>', lambda event: show_open_dialog())
 root.bind('<Control-s>', lambda event: save_avif())
 root.bind('<Control-f>', lambda event: find_optimal_settings())
 root.bind('<Control-q>', lambda event: root.quit())
