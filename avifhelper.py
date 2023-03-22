@@ -12,7 +12,8 @@ import re
 
 APP_DIR = os.path.dirname(__file__)
 APP_NAME = 'AVIF Helper'
-APP_VERSION = '0.0.3'
+APP_VERSION = '0.0.4'
+MAX_PIXELS = 1400*800
 
 
 root = Tk()
@@ -40,7 +41,7 @@ def show_open_dialog():
 
 def handle_drop_file(event):
     if event.data:
-        files = log.tk.splitlist(event.data)
+        files = logger.tk.splitlist(event.data)
         for f in files:
             if os.path.exists(f):
                 set_source_image(f)
@@ -51,7 +52,7 @@ def set_source_image(filename):
     original_image_filename.set(filename)
 
     if filename != '':
-        log.insert(END, 'File selected: ' + filename + '\n')
+        log('File selected: ' + filename + '\n')
         btn2['state'] = 'active'
     else:
         btn2['state'] = 'disabled'
@@ -77,13 +78,10 @@ def compress_image(src_filename, dest_filename, quality=50, speed=4):
 
 
 def compress_image_magik(src_filename, dest_filename, quality=50):
-    # .\magick.exe '.\DSCF0786.jpeg' -resize "1920x1080" -quality 20 -verbose output.avif
     cmd = [
         os.path.join(APP_DIR, 'magick.exe'),
         src_filename,
-        # '-resize', '1920x1080',
-        # '-resize', '1600x1200^>',    # Shrinks an image with dimension(s) larger than the corresponding width and/or height argument(s). >
-        '-resize', '1920000@^>',    # max number pixels
+        '-resize', str(MAX_PIXELS) + '@^>',    # max number pixels
         '-quality', str(quality),
         '-verbose',
         dest_filename
@@ -92,13 +90,13 @@ def compress_image_magik(src_filename, dest_filename, quality=50):
     output = my_subprocess_run(cmd)
 
     if '.avif' not in output:
-        log.insert(END, 'FAILED, Processing Image: ' + repr(output) + '\n\n')
+        log('FAILED, Processing Image: ' + repr(output) + '\n\n')
         return None
 
     matches = re.search(r' (\d+)B ', output)
 
     if matches is None:
-        log.insert(END, 'FAILED, No Match: ' + repr(matches) + '\n\n')
+        log('FAILED, No Match: ' + repr(matches) + '\n\n')
 
     return int(matches.group(1))
 
@@ -119,13 +117,13 @@ def compress_image_avifenc(src_filename, dest_filename, quality=50, speed=4):
     output = my_subprocess_run(cmd)
 
     if 'Successfully loaded' not in output:
-        log.insert(END, 'FAILED, Processing Image:\n' + repr(output) + '\n\n')
+        log('FAILED, Processing Image:\n' + repr(output) + '\n\n')
         return None
 
     matches = re.search(r'AV1 total size: (\d+) bytes', output)
 
     if matches is None:
-        log.insert(END, 'FAILED, No Match:\n' + repr(matches) + '\n\n')
+        log('FAILED, No Match:\n' + repr(matches) + '\n\n')
 
     return int(matches.group(1))
 
@@ -152,12 +150,12 @@ def find_optimal_settings():
             break
 
         if file_size < target_file_size.get():
-            log.insert(END, 'Quality=' + str(quality) + '  Size=' + str(file_size) + ' bytes  Done!\n')
+            log('Quality=' + str(quality) + '  Size=' + str(file_size) + ' bytes  Done!\n\n')
             final_quality_setting.set(quality)
             btn3['state'] = 'active'
             break
         else:
-            log.insert(END, 'Quality=' + str(quality) + '  Size=' + str(file_size) + ' bytes\n')
+            log('Quality=' + str(quality) + '  Size=' + str(file_size) + ' bytes\n')
 
         root.update()
 
@@ -184,9 +182,9 @@ def save_avif():
     if dest_filename is not None:
         file_size = compress_image(original_image_filename.get(), dest_filename, final_quality_setting.get())
         if file_size is None:
-            log.insert(END, 'Error Saving!?\n')
+            log('Error Saving!?\n')
         else:
-            log.insert(END, 'File Saved: ' + str(file_size) + ' bytes saved to ' + dest_filename + '\n')
+            log('File Saved: ' + str(file_size) + ' bytes saved to ' + dest_filename + '\n\n')
 
 
 def show_about_dialog():
@@ -195,41 +193,52 @@ def show_about_dialog():
                         + 'Icon Copyright ©2019 The Alliance for Open Media\n\n')
 
 
-top_frame = Frame(root, height=400)
-top_frame.grid(row=0, column=0, padx=10, pady=5)
+if __name__ == '__main__':
 
-log = Text(top_frame)
-log.pack()
-log.insert(END, 'Running in ' + APP_DIR + '\n\n')
-log.insert(END, 'Select a JPEG, or PNG image and this program will find a quality setting\n')
-log.insert(END, 'that results in a file <= 42,000 bytes (< 120sec in EasyPal).\n\n')
-log.insert(END, 'Now supports drag and drop!\n\n')
-log.insert(END, 'This program using ImageMagick for the actual conversion\n\n')
-log.insert(END, 'Images larger than 1600x1200 are scaled down before compression\n\n')
-log.insert(END, 'CTRL+O to Open, CTRL+F to Find Quality, CTRL+S to Save, and CTRL+Q to quit\n\n')
+    top_frame = Frame(root, height=400)
+    top_frame.grid(row=0, column=0, padx=10, pady=5)
 
-log.drop_target_register(DND_FILES)
-log.dnd_bind('<<Drop>>', handle_drop_file)
+    logger = Text(top_frame)
+    logger_scrollbar = Scrollbar(top_frame, orient='vertical', command=logger.yview)
 
-bottom_frame = Frame(root, height=100)
-bottom_frame.grid(row=1, column=0, padx=10, pady=10)
+    logger.configure(yscrollcommand=logger_scrollbar.set)
+    logger_scrollbar.pack(side='right', fill='y')
+    logger.pack()  # side='left', fill='both', expand=True)
 
-btn1 = Button(bottom_frame, text='Select Image', command=show_open_dialog)
-btn1.grid(row=0, column=0, padx=10)
+    logger.drop_target_register(DND_FILES)
+    logger.dnd_bind('<<Drop>>', handle_drop_file)
 
-btn2 = Button(bottom_frame, text='Find Optimal Quality', command=find_optimal_settings)
-btn2.grid(row=0, column=1, padx=10)
-btn2['state'] = 'disabled'
+    def log(s):
+        logger.insert(END, s)
+        logger.see('end')
 
-btn3 = Button(bottom_frame, text='Save AVIF', command=save_avif)
-btn3.grid(row=0, column=2, padx=10)
-btn3['state'] = 'disabled'
+    log('Running in ' + APP_DIR + '\n\n')
+    log('Select a JPEG, or PNG image and this program will find a quality setting\n')
+    log('that results in a file <= 42,000 bytes (< 120sec in EasyPal).\n\n')
+    log('Now supports drag and drop!\n\n')
+    log('This program using ImageMagick for the actual conversion\n\n')
+    log('Images larger than 1400x800 are scaled down before compression\n\n')
+    log('CTRL+O to Open, CTRL+F to Find Quality, CTRL+S to Save, and CTRL+Q to quit\n\n')
 
-btn_about = Button(bottom_frame, text='About', command=show_about_dialog)
-btn_about.grid(row=0, column=3, padx=10)
+    bottom_frame = Frame(root, height=100)
+    bottom_frame.grid(row=1, column=0, padx=10, pady=10)
 
-root.bind('<Control-o>', lambda event: show_open_dialog())
-root.bind('<Control-s>', lambda event: save_avif())
-root.bind('<Control-f>', lambda event: find_optimal_settings())
-root.bind('<Control-q>', lambda event: root.quit())
-root.mainloop()
+    btn1 = Button(bottom_frame, text='Select Image', command=show_open_dialog)
+    btn1.grid(row=0, column=0, padx=10)
+
+    btn2 = Button(bottom_frame, text='Find Optimal Quality', command=find_optimal_settings)
+    btn2.grid(row=0, column=1, padx=10)
+    btn2['state'] = 'disabled'
+
+    btn3 = Button(bottom_frame, text='Save AVIF', command=save_avif)
+    btn3.grid(row=0, column=2, padx=10)
+    btn3['state'] = 'disabled'
+
+    btn_about = Button(bottom_frame, text='About', command=show_about_dialog)
+    btn_about.grid(row=0, column=3, padx=10)
+
+    root.bind('<Control-o>', lambda event: show_open_dialog())
+    root.bind('<Control-s>', lambda event: save_avif())
+    root.bind('<Control-f>', lambda event: find_optimal_settings())
+    root.bind('<Control-q>', lambda event: root.quit())
+    root.mainloop()

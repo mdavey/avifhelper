@@ -3,7 +3,7 @@
 Super basic Python UI for compressing a JPEG/PNG to AVIF at a target size.
 
 There is nothing clever here.  It just uses ImageMagick to try a few quality settings and picks the one under the 
-specified goal size.  Will resize large images to somewhere around 1600x1200.
+specified goal size.  It will also auto resize large images to somewhere around 1400x800.
 
 It's meant to be super simple.  If you want the best quality then use [https://squoosh.app/](Squoosh).  It's amazing.
 
