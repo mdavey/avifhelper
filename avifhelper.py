@@ -12,8 +12,8 @@ import re
 
 APP_DIR = os.path.dirname(__file__)
 APP_NAME = 'AVIF Helper'
-APP_VERSION = '0.0.4'
-MAX_PIXELS = 1400*800
+APP_VERSION = '0.0.5'
+MAX_PIXELS = 1600*1200
 
 
 root = Tk()
@@ -22,8 +22,9 @@ root.resizable(False, False)
 root.iconbitmap(os.path.join(APP_DIR, 'avif-logo-rgb.svg.ico'))  # https://redketchup.io/icon-editor
 
 original_image_filename = StringVar(root, '')
-target_file_size = IntVar(root, 42000)
 final_quality_setting = IntVar(root, 50)
+target_file_size_string = StringVar(root, "42000")
+resize_enable = IntVar(root, 1)
 
 
 def show_open_dialog():
@@ -68,24 +69,27 @@ def my_subprocess_run(cmd):
     si = subprocess.STARTUPINFO()
     si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
 
-    output = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE, startupinfo=si, env=os.environ).stdout
+    output = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE,
+                            startupinfo=si, env=os.environ).stdout
     return output.decode('utf-8')
 
 
-def compress_image(src_filename, dest_filename, quality=50, speed=4):
-    # return compress_image_avifenc(src_filename, dest_filename, quality, speed)
-    return compress_image_magik(src_filename, dest_filename, quality)
-
-
-def compress_image_magik(src_filename, dest_filename, quality=50):
+def compress_image(src_filename, dest_filename, quality=50):
     cmd = [
         os.path.join(APP_DIR, 'magick.exe'),
         src_filename,
-        '-resize', str(MAX_PIXELS) + '@^>',    # max number pixels
+    ]
+
+    if resize_enable.get() == 1:
+        cmd.extend([
+            '-resize', str(MAX_PIXELS) + '@^>'
+        ])
+
+    cmd.extend([
         '-quality', str(quality),
         '-verbose',
         dest_filename
-    ]
+    ])
 
     output = my_subprocess_run(cmd)
 
@@ -101,33 +105,6 @@ def compress_image_magik(src_filename, dest_filename, quality=50):
     return int(matches.group(1))
 
 
-def compress_image_avifenc(src_filename, dest_filename, quality=50, speed=4):
-    # .\avifenc.exe --jobs 8 -q 50 --speed 5 .\DSCF0786.jpeg output.avif
-    cmd = [
-        os.path.join(APP_DIR, 'avifenc.exe'),
-        src_filename,
-        '-q', str(quality),
-        '--speed', str(speed),
-        '--jobs', 'all',
-        # '--tilerowslog2', '2',  # I have a feeling this increases the efficiency of threads?
-        # '--tilecolslog2', '2',  # Maybe turn off for final save?
-        '-o', dest_filename
-    ]
-
-    output = my_subprocess_run(cmd)
-
-    if 'Successfully loaded' not in output:
-        log('FAILED, Processing Image:\n' + repr(output) + '\n\n')
-        return None
-
-    matches = re.search(r'AV1 total size: (\d+) bytes', output)
-
-    if matches is None:
-        log('FAILED, No Match:\n' + repr(matches) + '\n\n')
-
-    return int(matches.group(1))
-
-
 def find_optimal_settings():
     if btn2['state'] == 'disabled':
         return
@@ -138,6 +115,7 @@ def find_optimal_settings():
     root.update()
 
     possible_quality = [70, 60, 50, 40, 35, 30, 25, 22, 19, 16, 13, 10, 7]
+    target_file_size = int(target_file_size_string.get())
 
     for quality in possible_quality:
 
@@ -149,7 +127,7 @@ def find_optimal_settings():
         if file_size is None:
             break
 
-        if file_size < target_file_size.get():
+        if file_size < target_file_size:
             log('Quality=' + str(quality) + '  Size=' + str(file_size) + ' bytes  Done!\n\n')
             final_quality_setting.set(quality)
             btn3['state'] = 'active'
@@ -179,7 +157,8 @@ def save_avif():
         defaultextension=".avif",
         initialfile=build_reasonable_destination_filename(original_image_filename.get()))
 
-    if dest_filename is not None:
+    if dest_filename != "":
+        log("Dest filename " + repr(dest_filename))
         file_size = compress_image(original_image_filename.get(), dest_filename, final_quality_setting.get())
         if file_size is None:
             log('Error Saving!?\n')
@@ -217,24 +196,45 @@ if __name__ == '__main__':
     log('that results in a file <= 42,000 bytes (< 120sec in EasyPal).\n\n')
     log('Now supports drag and drop!\n\n')
     log('This program using ImageMagick for the actual conversion\n\n')
-    log('Images larger than 1400x800 are scaled down before compression\n\n')
+    log('Images larger than 1600x1200 are scaled down before compression\n\n')
     log('CTRL+O to Open, CTRL+F to Find Quality, CTRL+S to Save, and CTRL+Q to quit\n\n')
 
-    bottom_frame = Frame(root, height=100)
+    bottom_frame = Frame(root)
     bottom_frame.grid(row=1, column=0, padx=10, pady=10)
 
-    btn1 = Button(bottom_frame, text='Select Image', command=show_open_dialog)
+    #
+    resize_frame = Frame(bottom_frame)
+    resize_frame.grid(row=0, column=0, padx=10, pady=5)
+
+    resize_checkbox = Checkbutton(resize_frame, text="Auto Resize", onvalue=1, offvalue=0, variable=resize_enable)
+    resize_checkbox.pack(side=LEFT)
+
+    #
+    target_frame = Frame(bottom_frame)
+    target_frame.grid(row=1, column=0, padx=10)
+
+    Label(target_frame, text="Target File Size: ").pack(side=LEFT)  # .grid(row=0, column=0, padx=10)
+
+    target_size_spinbox = Spinbox(target_frame, width=8, from_=20000, to=80000,
+                                  textvariable=target_file_size_string, increment=1000.0)
+    target_size_spinbox.pack(side=LEFT)
+
+    #
+    button_frame = Frame(bottom_frame)
+    button_frame.grid(row=0, column=1, columnspan=2, padx=10)
+
+    btn1 = Button(button_frame, text='Select Image', command=show_open_dialog)
     btn1.grid(row=0, column=0, padx=10)
 
-    btn2 = Button(bottom_frame, text='Find Optimal Quality', command=find_optimal_settings)
+    btn2 = Button(button_frame, text='Find Optimal Quality', command=find_optimal_settings)
     btn2.grid(row=0, column=1, padx=10)
     btn2['state'] = 'disabled'
 
-    btn3 = Button(bottom_frame, text='Save AVIF', command=save_avif)
+    btn3 = Button(button_frame, text='Save AVIF', command=save_avif)
     btn3.grid(row=0, column=2, padx=10)
     btn3['state'] = 'disabled'
 
-    btn_about = Button(bottom_frame, text='About', command=show_about_dialog)
+    btn_about = Button(button_frame, text='About', command=show_about_dialog)
     btn_about.grid(row=0, column=3, padx=10)
 
     root.bind('<Control-o>', lambda event: show_open_dialog())
